@@ -31,9 +31,9 @@ void ArduboyBase::start()
 // provides by default
 void ArduboyBase::begin()
 {
-  boot();       // raw hardware
-  blank();      // blank the display
-  flashlight(); // start the flashlight if the UP button is held
+  boot();          // raw hardware
+  blank();         // blank the display
+  flashlight();    // start the flashlight if the UP button is held
   systemButtons(); // check for the presence of any held system buttons
   bootLogo();      // display the boot logo
   audio.begin();   // start the audio
@@ -44,6 +44,7 @@ void ArduboyBase::flashlight()
   if(!pressed(UP_BUTTON))
     return;
 
+#ifdef ARDUINO
   // turn all pixels on
   sendLCDCommand(OLED_ALL_PIXELS_ON);
   // turn red, green and blue LEDS on for white light
@@ -55,10 +56,12 @@ void ArduboyBase::flashlight()
 
   digitalWriteRGB(RGB_OFF, RGB_OFF, RGB_OFF);
   sendLCDCommand(OLED_PIXELS_FROM_RAM);
+#endif
 }
 
 void ArduboyBase::systemButtons()
 {
+#ifdef ARDUINO
   while (pressed(B_BUTTON))
   {
     digitalWrite(BLUE_LED, RGB_ON);
@@ -68,10 +71,12 @@ void ArduboyBase::systemButtons()
   }
 
   digitalWrite(BLUE_LED, RGB_OFF);
+#endif
 }
 
 void ArduboyBase::sysCtrlSound(uint8_t buttons, uint8_t led, uint8_t eeVal)
 {
+#ifdef ARDUINO
   if (pressed(buttons))
   {
     digitalWrite(BLUE_LED, RGB_OFF); // turn off blue LED
@@ -83,10 +88,12 @@ void ArduboyBase::sysCtrlSound(uint8_t buttons, uint8_t led, uint8_t eeVal)
 
     while (pressed(buttons)) {} // Wait for button release
   }
+#endif
 }
 
 void ArduboyBase::bootLogo()
 {
+#ifdef ARDUINO
   digitalWrite(RED_LED, RGB_ON);
 
   for (int8_t y = -18; y <= 24; y++)
@@ -112,6 +119,7 @@ void ArduboyBase::bootLogo()
 
   delay(750);
   digitalWrite(BLUE_LED, RGB_OFF);
+#endif
 }
 
 // This function is deprecated.
@@ -220,13 +228,16 @@ int ArduboyBase::cpuLoad()
 
 void ArduboyBase::initRandomSeed()
 {
+#ifdef ARDUINO
   power_adc_enable();  // ADC on
   randomSeed(~rawADC(ADC_TEMP) * ~rawADC(ADC_VOLTAGE) * ~micros() + micros());
   power_adc_disable(); // ADC off
+#endif
 }
 
 uint16_t ArduboyBase::rawADC(uint8_t adc_bits)
 {
+#ifdef ARDUINO
   ADMUX = adc_bits;
   // we also need MUX5 for temperature check
   if (adc_bits == ADC_TEMP)
@@ -235,7 +246,7 @@ uint16_t ArduboyBase::rawADC(uint8_t adc_bits)
   delay(2);                        // Wait for ADMUX setting to settle
   ADCSRA |= _BV(ADSC);             // Start conversion
   while (bit_is_set(ADCSRA,ADSC)); // measuring
-
+#endif
   return ADC;
 }
 
@@ -535,11 +546,8 @@ void ArduboyBase::fillRect(int16_t x, int16_t y, uint8_t w, uint8_t h,
 
 void ArduboyBase::fillScreen(uint8_t color)
 {
-  // C version :
-  //
-  // if (color) color = 0xFF;  //change any nonzero argument to b11111111 and insert into screen array.
-  // for(int16_t i=0; i<1024; i++)  { sBuffer[i] = color; }  //sBuffer = (128*64) = 8192/8 = 1024 bytes.
 
+#ifdef ARDUINO
   asm volatile
   (
     // load color value into r27
@@ -569,6 +577,11 @@ void ArduboyBase::fillScreen(uint8_t color)
     : "r" (sBuffer), "r" (color)
     : "r30", "r31", "r27"
   );
+#else
+  if (color) color = 0xFF;       //change any nonzero argument to b11111111 and insert into screen array.
+  for (int16_t i=0; i<1024; i++) //sBuffer = (128*64) = 8192/8 = 1024 bytes.
+    sBuffer[i] = color;
+#endif
 }
 
 void ArduboyBase::drawRoundRect(int16_t x, int16_t y, uint8_t w, uint8_t h,
@@ -689,6 +702,7 @@ void ArduboyBase::fillTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
 void ArduboyBase::drawBitmap(int16_t x, int16_t y, const uint8_t *bitmap,
                              uint8_t w, uint8_t h, uint8_t color)
 {
+#ifdef ARDUINO
   // no need to dar at all of we're offscreen
   if (x+w < 0 || x > WIDTH-1 || y+h < 0 || y > HEIGHT-1)
     return;
@@ -752,31 +766,35 @@ void ArduboyBase::drawBitmap(int16_t x, int16_t y, const uint8_t *bitmap,
       }
     }
   }
+#endif
 }
 
 
 void ArduboyBase::drawSlowXYBitmap(int16_t x, int16_t y, const uint8_t *bitmap,
-                               uint8_t w, uint8_t h, uint8_t color)
+                                   uint8_t w, uint8_t h, uint8_t color)
 {
+#ifdef ARDUINO
   // no need to dar at all of we're offscreen
   if (x+w < 0 || x > WIDTH-1 || y+h < 0 || y > HEIGHT-1)
     return;
 
   int16_t xi, yi, byteWidth = (w + 7) / 8;
-  for(yi = 0; yi < h; yi++)
+  for (yi = 0; yi < h; yi++)
   {
-    for(xi = 0; xi < w; xi++ )
+    for (xi = 0; xi < w; xi++ )
     {
-      if(pgm_read_byte(bitmap + yi * byteWidth + xi / 8) & (128 >> (xi & 7)))
+      if (pgm_read_byte(bitmap + yi * byteWidth + xi / 8) & (128 >> (xi & 7)))
         drawPixel(x + xi, y + yi, color);
     }
   }
+#endif
 }
 
 
 void ArduboyBase::drawChar
 (int16_t x, int16_t y, uint8_t c, uint8_t color, uint8_t bg, uint8_t size)
 {
+#ifdef ARDUINO
   bool draw_background = bg != color;
 
   if ((x >= WIDTH) ||            // Clip right
@@ -808,6 +826,7 @@ void ArduboyBase::drawChar
       line >>= 1;
     }
   }
+#endif
 }
 
 void ArduboyBase::display()

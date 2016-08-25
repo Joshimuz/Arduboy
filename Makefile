@@ -75,7 +75,7 @@ USER_LIB_PATH := ..
 ARDUINO_LIBS = Arduboy SPI EEPROM
 
 # Required CXXFLAGS
-CXXFLAGS_STD = -std=gnu++11 -fno-threadsafe-statics
+CXXFLAGS_STD = -std=gnu++11 -fno-threadsafe-statics -Wall
 
 # Get the current working directory
 CURRENT_DIR = $(shell basename $(CURDIR))

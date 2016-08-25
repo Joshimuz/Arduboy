@@ -6,6 +6,7 @@
 
 #include "ArduboyCore.h"
 
+#ifdef ARDUINO
 // need to redeclare these here since we declare them static in .h
 volatile uint8_t *ArduboyCore::csport, *ArduboyCore::dcport;
 uint8_t ArduboyCore::cspinmask, ArduboyCore::dcpinmask;
@@ -104,27 +105,32 @@ const uint8_t PROGMEM lcdBootProgram[] = {
   // 0x22, 0x00, PAGE_ADDRESS_END
 };
 
+#endif
+
 ArduboyCore::ArduboyCore() {}
 
 void ArduboyCore::boot()
 {
-  #ifdef ARDUBOY_SET_CPU_8MHZ
+#ifdef ARDUINO
+#ifdef ARDUBOY_SET_CPU_8MHZ
   // ARDUBOY_SET_CPU_8MHZ will be set by the IDE using boards.txt
   setCPUSpeed8MHz();
-  #endif
+#endif
 
   SPI.begin();
   bootPins();
   bootOLED();
 
-  #ifdef SAFE_MODE
+#ifdef SAFE_MODE
   if (buttonsState() == (LEFT_BUTTON | UP_BUTTON))
     safeMode();
-  #endif
+#endif
 
   bootPowerSaving();
+#endif
 }
 
+#ifdef ARDUINO
 #ifdef ARDUBOY_SET_CPU_8MHZ
 // If we're compiling for 8MHz we need to slow the CPU down because the
 // hardware clock on the Arduboy is 16MHz.
@@ -141,9 +147,11 @@ void ArduboyCore::setCPUSpeed8MHz()
   SREG = oldSREG;       // restore interrupts
 }
 #endif
+#endif
 
 void ArduboyCore::bootPins()
 {
+#ifdef ARDUINO
   uint8_t pin, mode;
   const uint8_t *i = pinBootProgram;
 
@@ -160,10 +168,12 @@ void ArduboyCore::bootPins()
   digitalWrite(RST, LOW);   // bring reset low
   delay(10);          // wait 10ms
   digitalWrite(RST, HIGH);  // bring out of reset
+#endif
 }
 
 void ArduboyCore::bootOLED()
 {
+#ifdef ARDUINO
   // setup the ports we need to talk to the OLED
   csport = portOutputRegister(digitalPinToPort(CS));
   cspinmask = digitalPinToBitMask(CS);
@@ -175,43 +185,53 @@ void ArduboyCore::bootOLED()
   LCDCommandMode();
   // run our customized boot-up command sequence against the
   // OLED to initialize it properly for Arduboy
-  for (int8_t i = 0; i < sizeof(lcdBootProgram); i++)
+  for (uint8_t i = 0; i < sizeof(lcdBootProgram); i++)
     SPI.transfer(pgm_read_byte(lcdBootProgram + i));
 
   LCDDataMode();
+#endif
 }
 
 void ArduboyCore::LCDDataMode()
 {
+#ifdef ARDUINO
   *dcport |= dcpinmask;
   *csport &= ~cspinmask;
 }
+#endif
 
 void ArduboyCore::LCDCommandMode()
 {
+#ifdef ARDUINO
   *csport |= cspinmask;
   *dcport &= ~dcpinmask;
   *csport &= ~cspinmask;
+#endif
 }
 
 void ArduboyCore::safeMode()
 {
+#ifdef ARDUINO
   blank(); // clear screen to avoid writing random bytes in image buffer
   while (true) {
     asm volatile("nop \n");
   }
+#endif
 }
 
 /* Power Management */
 
 void ArduboyCore::idle()
 {
+#ifdef ARDUINO
   set_sleep_mode(SLEEP_MODE_IDLE);
   sleep_mode();
+#endif
 }
 
 void ArduboyCore::bootPowerSaving()
 {
+#ifdef ARDUINO
   power_adc_disable();
   power_usart0_disable();
   power_twi_disable();
@@ -221,6 +241,7 @@ void ArduboyCore::bootPowerSaving()
   power_usart1_disable();
   // we need USB, for now (to allow triggered reboots to reprogram)
   // power_usb_disable()
+#endif
 }
 
 uint8_t ArduboyCore::width() { return WIDTH; }
@@ -231,13 +252,17 @@ uint8_t ArduboyCore::height() { return HEIGHT; }
 
 void ArduboyCore::paint8Pixels(uint8_t pixels)
 {
+#ifdef ARDUINO
   SPI.transfer(pixels);
+#endif
 }
 
 void ArduboyCore::paintScreen(const uint8_t *image)
 {
+#ifdef ARDUINO
   for (int i = 0; i < (HEIGHT*WIDTH)/8; i++)
     SPI.transfer(pgm_read_byte(image + i));
+#endif
 }
 
 // paint from a memory buffer, this should be FAST as it's likely what
@@ -246,6 +271,7 @@ void ArduboyCore::paintScreen(const uint8_t *image)
 // are made to paintScreenAndClearImage()
 void ArduboyCore::paintScreen(uint8_t image[])
 {
+#ifdef ARDUINO
   uint8_t c;
   int i = 0;
 
@@ -266,6 +292,7 @@ void ArduboyCore::paintScreen(uint8_t image[])
     SPDR = c;
   }
   while (!(SPSR & _BV(SPIF))) { } // wait for the last byte to be sent
+#endif
 }
 
 // this function is the same as paintScreen() except it also zeros the image
@@ -275,6 +302,7 @@ void ArduboyCore::paintScreen(uint8_t image[])
 // to match.
 void ArduboyCore::paintScreenAndClearImage(uint8_t image[])
 {
+#ifdef ARDUINO
   uint8_t c;
   int i = 0;
 
@@ -298,51 +326,65 @@ void ArduboyCore::paintScreenAndClearImage(uint8_t image[])
     SPDR = c;
   }
   while (!(SPSR & _BV(SPIF))) { } // wait for the last byte to be sent
+#endif
 }
 
 void ArduboyCore::blank()
 {
+#ifdef ARDUINO
   for (int i = 0; i < (HEIGHT * WIDTH) / 8; i++)
     SPI.transfer(0x00);
+#endif
 }
 
 void ArduboyCore::sendLCDCommand(uint8_t command)
 {
+#ifdef ARDUINO
   LCDCommandMode();
   SPI.transfer(command);
   LCDDataMode();
+#endif
 }
 
 // invert the display or set to normal
 // when inverted, a pixel set to 0 will be on
 void ArduboyCore::invert(bool inverse)
 {
+#ifdef ARDUINO
   sendLCDCommand(inverse ? OLED_PIXELS_INVERTED : OLED_PIXELS_NORMAL);
+#endif
 }
 
 // turn all display pixels on, ignoring buffer contents
 // or set to normal buffer display
 void ArduboyCore::allPixelsOn(bool on)
 {
+#ifdef ARDUINO
   sendLCDCommand(on ? OLED_ALL_PIXELS_ON : OLED_PIXELS_FROM_RAM);
+#endif
 }
 
 // flip the display vertically or set to normal
 void ArduboyCore::flipVertical(bool flipped)
 {
+#ifdef ARDUINO
   sendLCDCommand(flipped ? OLED_VERTICAL_FLIPPED : OLED_VERTICAL_NORMAL);
+#endif
 }
 
 // flip the display horizontally or set to normal
 void ArduboyCore::flipHorizontal(bool flipped)
 {
+#ifdef ARDUINO
   sendLCDCommand(flipped ? OLED_HORIZ_FLIPPED : OLED_HORIZ_NORMAL);
+#endif
 }
 
 /* RGB LED */
 
 void ArduboyCore::setRGBled(uint8_t red, uint8_t green, uint8_t blue)
 {
+#ifdef ARDUINO
 #ifdef ARDUBOY_10 // RGB, all the pretty colors
   // inversion is necessary because these are common annode LEDs
   analogWrite(RED_LED, 255 - red);
@@ -352,16 +394,19 @@ void ArduboyCore::setRGBled(uint8_t red, uint8_t green, uint8_t blue)
   // only blue on devkit
   digitalWrite(BLUE_LED, ~blue);
 #endif
+#endif
 }
 
 void ArduboyCore::digitalWriteRGB(uint8_t red, uint8_t green, uint8_t blue)
 {
+#ifdef ARDUINO
 #ifdef ARDUBOY_10
   digitalWrite(RED_LED, red);
   digitalWrite(GREEN_LED, green);
   digitalWrite(BLUE_LED, blue);
 #elif defined(AB_DEVKIT)
   digitalWrite(BLUE_LED, blue);
+#endif
 #endif
 }
 
@@ -371,6 +416,7 @@ uint8_t ArduboyCore::buttonsState()
 {
   uint8_t buttons;
 
+#ifdef ARDUINO
   // using ports here is ~100 bytes smaller than digitalRead()
 #ifdef AB_DEVKIT
   // down, left, up
@@ -386,6 +432,7 @@ uint8_t ArduboyCore::buttonsState()
   buttons = buttons | (((~PINE) & B01000000) >> 3);
   // B (right)
   buttons = buttons | (((~PINB) & B00010000) >> 2);
+#endif
 #endif
 
   return buttons;
