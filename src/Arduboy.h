@@ -11,6 +11,7 @@
 #include <Print.h>
 #include <limits.h>
 
+#define paintScreenAndClearImage(x) paintScreen(x, 1)
 /// Library version.
 /**
  * A version number, 'x.y.z', is stored in the form xxyyzz,
