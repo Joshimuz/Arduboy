@@ -262,11 +262,6 @@ public:
    * \details
    * Each byte will be 8 vertical pixels, painted in the same order.
    */
-  void static paintScreen(uint8_t image[]);
-
-  /**
-   * Paints a screen and clears
-   */
   void static paintScreen(uint8_t image[], bool clear);
 
   /**
